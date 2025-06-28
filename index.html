@@ -39,7 +39,10 @@
     .desc { margin-bottom: 10px; }
     .url-link { margin-top: 5px; font-size: 0.9em; }
     .url-link a { color: #0066cc; text-decoration: underline; }
-    .comments { background: #f9f9f9; padding: 10px; border-radius: 5px; margin-top: 10px; }
+    .comments {
+      background: #f9f9f9; padding: 10px; border-radius: 5px;
+      margin-top: 10px; overflow-y: auto; max-height: 250px;
+    }
     .comment { margin-bottom: 8px; border-bottom: 1px dotted #ccc; padding-bottom: 4px; }
     .commenter { font-weight: bold; font-size: 0.9em; }
     .note { font-size: 0.8em; color: #aa0000; margin-top: 30px; }
@@ -78,6 +81,14 @@
         renderGames();
       });
 
+    function isNew(timestampStr) {
+      const now = new Date();
+      const posted = new Date(timestampStr);
+      const diffMs = now - posted;
+      const diffHours = diffMs / (1000 * 60 * 60);
+      return diffHours <= 48; // 48時間以内
+    }
+
     function renderGames() {
       const container = document.getElementById('game-list');
       container.innerHTML = '';
@@ -102,11 +113,12 @@
         const url = game['埋め込みURL'];
         const author = game['作者名'];
         const desc = game['説明'];
+        const isNewMark = isNew(gameID) ? ' 🆕' : '';
 
         const div = document.createElement('div');
         div.className = 'game-container';
         div.innerHTML = `
-          <div class="title">${title}</div>
+          <div class="title">${title}${isNewMark}</div>
           <div class="author">投稿者: ${author}</div>
           <div class="desc">${desc}</div>
           <iframe src="${url}" allowfullscreen></iframe>
