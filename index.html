@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ゲーム投稿サイト</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; margin: 20px; background: #f4f4f4; }
+    .controls {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      justify-content: center; align-items: center;
+      margin: 20px 0;
+    }
+    input[type="text"] {
+      padding: 10px; font-size: 16px; min-width: 300px;
+    }
+    .post-button {
+      background: #4CAF50; color: white; padding: 10px 20px;
+      border: none; border-radius: 5px; font-size: 16px;
+      cursor: pointer; text-decoration: none;
+    }
+    .post-button:hover {
+      background: #45a049;
+    }
+    .description {
+      text-align: center; margin-bottom: 10px; font-size: 1em;
+      color: #333;
+    }
+    .game-container {
+      background: #fff; padding: 15px; margin-bottom: 30px;
+      border: 1px solid #ccc; border-radius: 8px;
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
+    }
+    iframe {
+      width: 100%; height: 300px; border: none; border-radius: 4px; margin-top: 10px;
+    }
+    .title { font-size: 1.4em; font-weight: bold; margin-bottom: 5px; }
+    .author { font-size: 0.9em; color: #555; margin-bottom: 10px; }
+    .desc { margin-bottom: 10px; }
+    .url-link { margin-top: 5px; font-size: 0.9em; }
+    .url-link a { color: #0066cc; text-decoration: underline; }
+    .comments { background: #f9f9f9; padding: 10px; border-radius: 5px; margin-top: 10px; }
+    .comment { margin-bottom: 8px; border-bottom: 1px dotted #ccc; padding-bottom: 4px; }
+    .commenter { font-weight: bold; font-size: 0.9em; }
+    .note { font-size: 0.8em; color: #aa0000; margin-top: 30px; }
+  </style>
+</head>
+<body>
+
+  <h1 style="text-align:center;">🎮 みんなの2Dゲーム投稿サイト</h1>
+  <p class="description">登録不要でゲームやサイトを投稿できるサイトです。</p>
+
+  <div class="controls">
+    🔍 <input type="text" id="search-input" placeholder="タイトル・説明・作者名で検索">
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSfj1VxFmu503OjIcevdIzRhRVNaovNneFzz2ltJh1VKFKB7Zg/viewform?usp=dialog" target="_blank" class="post-button">🎮 ゲームを投稿する</a>
+  </div>
+
+  <div id="game-list">読み込み中...</div>
+  <p class="note">※リンクの安全性について、当サイトは一切責任を負いません。アクセスは自己責任でお願いします。</p>
+
+  <script>
+    const GAME_API = 'https://sheetdb.io/api/v1/ir988y81fa5qp';
+    const COMMENT_API = 'https://sheetdb.io/api/v1/9pz0nxpqdxhyf';
+    const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfPNdLeI-qmWufZQjU2I9IB3kI0sv8T3HqFXgVmvvyFOrfoDg/viewform?usp=pp_url&entry.1151577332=';
+
+    let allGames = [];
+    let searchKeyword = '';
+
+    document.getElementById('search-input').addEventListener('input', e => {
+      searchKeyword = e.target.value.toLowerCase();
+      renderGames();
+    });
+
+    fetch(GAME_API)
+      .then(res => res.json())
+      .then(games => {
+        allGames = games.reverse();
+        renderGames();
+      });
+
+    function renderGames() {
+      const container = document.getElementById('game-list');
+      container.innerHTML = '';
+
+      const filtered = allGames.filter(game => {
+        const target = (
+          (game['ゲームタイトル'] || '') +
+          (game['説明'] || '') +
+          (game['作者名'] || '')
+        ).toLowerCase();
+        return target.includes(searchKeyword);
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<p>該当する投稿が見つかりませんでした。</p>';
+        return;
+      }
+
+      filtered.forEach(game => {
+        const gameID = game['タイムスタンプ'];
+        const title = game['ゲームタイトル'];
+        const url = game['埋め込みURL'];
+        const author = game['作者名'];
+        const desc = game['説明'];
+
+        const div = document.createElement('div');
+        div.className = 'game-container';
+        div.innerHTML = `
+          <div class="title">${title}</div>
+          <div class="author">投稿者: ${author}</div>
+          <div class="desc">${desc}</div>
+          <iframe src="${url}" allowfullscreen></iframe>
+          <div class="url-link">▶ <a href="${url}" target="_blank">${url}</a></div>
+          <div class="comments" id="comments-${gameID}">
+            <strong>💬 コメント一覧</strong><br>読み込み中...
+          </div>
+          <a href="${FORM_URL}${encodeURIComponent(gameID)}" target="_blank">📝 コメントを投稿する</a>
+        `;
+        container.appendChild(div);
+
+        fetch(COMMENT_API)
+          .then(res => res.json())
+          .then(comments => {
+            const related = comments.filter(c => c['ゲームID'] === gameID);
+            const box = document.getElementById(`comments-${gameID}`);
+            if (related.length === 0) {
+              box.innerHTML += '<p>まだコメントがありません。</p>';
+            } else {
+              box.innerHTML = '<strong>💬 コメント一覧</strong><br>';
+              related.forEach(c => {
+                box.innerHTML += `
+                  <div class="comment">
+                    <div class="commenter">${c['コメント者名']}</div>
+                    <div>${c['コメント本文']}</div>
+                  </div>
+                `;
+              });
+            }
+          });
+      });
+    }
+  </script>
+
+</body>
+</html>
