@@ -6,43 +6,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: sans-serif; margin: 20px; background: #f4f4f4; }
-    .controls {
-      display: flex; flex-wrap: wrap; gap: 10px;
-      justify-content: center; align-items: center;
-      margin: 20px 0;
-    }
-    input[type="text"] {
-      padding: 10px; font-size: 16px; min-width: 300px;
-    }
-    .post-button {
-      background: #4CAF50; color: white; padding: 10px 20px;
-      border: none; border-radius: 5px; font-size: 16px;
-      cursor: pointer; text-decoration: none;
-    }
-    .post-button:hover {
-      background: #45a049;
-    }
-    .description {
-      text-align: center; margin-bottom: 10px; font-size: 1em;
-      color: #333;
-    }
-    .game-container {
-      background: #fff; padding: 15px; margin-bottom: 30px;
-      border: 1px solid #ccc; border-radius: 8px;
-      box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
-    }
-    iframe {
-      width: 100%; height: 300px; border: none; border-radius: 4px; margin-top: 10px;
-    }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; margin: 20px 0; }
+    input[type="text"] { padding: 10px; font-size: 16px; min-width: 300px; }
+    .post-button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; text-decoration: none; }
+    .post-button:hover { background: #45a049; }
+    .description { text-align: center; margin-bottom: 10px; font-size: 1em; color: #333; }
+    .game-container { background: #fff; padding: 15px; margin-bottom: 30px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.1); }
+    iframe { width: 100%; height: 300px; border: none; border-radius: 4px; margin-top: 10px; }
     .title { font-size: 1.4em; font-weight: bold; margin-bottom: 5px; }
-    .author { font-size: 0.9em; color: #555; margin-bottom: 10px; }
+    .author { font-size: 0.9em; color: #555; margin-bottom: 5px; }
+    .source { font-size: 0.9em; color: #555; margin-bottom: 10px; }
     .desc { margin-bottom: 10px; }
     .url-link { margin-top: 5px; font-size: 0.9em; }
     .url-link a { color: #0066cc; text-decoration: underline; }
-    .comments {
-      background: #f9f9f9; padding: 10px; border-radius: 5px;
-      margin-top: 10px; overflow-y: auto; max-height: 250px;
-    }
+    .comments { background: #f9f9f9; padding: 10px; border-radius: 5px; margin-top: 10px; overflow-y: auto; max-height: 250px; }
     .comment { margin-bottom: 8px; border-bottom: 1px dotted #ccc; padding-bottom: 4px; }
     .commenter { font-weight: bold; font-size: 0.9em; }
     .note { font-size: 0.8em; color: #aa0000; margin-top: 30px; }
@@ -54,7 +31,7 @@
   <p class="description">登録不要でゲームやサイトを投稿できるサイトです。</p>
 
   <div class="controls">
-    🔍 <input type="text" id="search-input" placeholder="タイトル・説明・作者名で検索">
+    🔍 <input type="text" id="search-input" placeholder="タイトル・説明・作者名・種類で検索">
     <a href="https://docs.google.com/forms/d/e/1FAIpQLSfj1VxFmu503OjIcevdIzRhRVNaovNneFzz2ltJh1VKFKB7Zg/viewform?usp=dialog" target="_blank" class="post-button">🎮 ゲームを投稿する</a>
   </div>
 
@@ -84,9 +61,7 @@
     function isNew(timestampStr) {
       const now = new Date();
       const posted = new Date(timestampStr);
-      const diffMs = now - posted;
-      const diffHours = diffMs / (1000 * 60 * 60);
-      return diffHours <= 48; // 48時間以内
+      return (now - posted) / (1000 * 60 * 60) <= 48;
     }
 
     function renderGames() {
@@ -97,7 +72,8 @@
         const target = (
           (game['ゲームタイトル'] || '') +
           (game['説明'] || '') +
-          (game['作者名'] || '')
+          (game['作者名'] || '') +
+          (game['自作か転載か'] || '')
         ).toLowerCase();
         return target.includes(searchKeyword);
       });
@@ -113,13 +89,15 @@
         const url = game['埋め込みURL'];
         const author = game['作者名'];
         const desc = game['説明'];
-        const isNewMark = isNew(gameID) ? ' 🆕' : '';
+        const source = game['自作か転載か'] || '不明';
+        const newMark = isNew(gameID) ? ' 🆕' : '';
 
         const div = document.createElement('div');
         div.className = 'game-container';
         div.innerHTML = `
-          <div class="title">${title}${isNewMark}</div>
+          <div class="title">${title}${newMark}</div>
           <div class="author">投稿者: ${author}</div>
+          <div class="source">種類: ${source}</div>
           <div class="desc">${desc}</div>
           <iframe src="${url}" allowfullscreen></iframe>
           <div class="url-link">▶ <a href="${url}" target="_blank">${url}</a></div>
