@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="ja">
+<!DOCTYPE html> 
+<html lang="ja"> 
 <head>
   <meta charset="UTF-8">
   <title>ゲーム投稿サイト</title>
@@ -10,6 +10,7 @@
     input[type="text"] { padding: 10px; font-size: 16px; min-width: 300px; }
     .post-button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; text-decoration: none; }
     .post-button:hover { background: #45a049; }
+    .settings-button { cursor: pointer; font-size: 18px; margin-left: 10px; color: #333; }
     .description { text-align: center; margin-bottom: 10px; font-size: 1em; color: #333; }
     .game-container { background: #fff; padding: 15px; margin-bottom: 30px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.1); }
     iframe { width: 100%; height: 300px; border: none; border-radius: 4px; margin-top: 10px; }
@@ -23,6 +24,26 @@
     .comment { margin-bottom: 8px; border-bottom: 1px dotted #ccc; padding-bottom: 4px; }
     .commenter { font-weight: bold; font-size: 0.9em; }
     .note { font-size: 0.8em; color: #aa0000; margin-top: 30px; }
+    .hidden-comment { color: #888; cursor: pointer; font-style: italic; }
+    /* 設定モーダル */
+    .settings-modal {
+      display: none; position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff; padding: 20px; border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 1000;
+      width: 450px; height: 350px; /* 大きめ固定サイズ */
+    }
+    .settings-modal h3 { margin-top: 0; }
+    .settings-overlay {
+      display: none; position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+      z-index: 900;
+    }
+    /* サンプルプレビュー */
+    .sample-preview {
+      margin-top: 10px; padding: 8px;
+      background: #f9f9f9; border-radius: 6px; font-size: 0.9em;
+    }
   </style>
 </head>
 <body>
@@ -33,10 +54,31 @@
   <div class="controls">
     🔍 <input type="text" id="search-input" placeholder="タイトル・説明・作者名・種類で検索">
     <a href="https://docs.google.com/forms/d/e/1FAIpQLSfj1VxFmu503OjIcevdIzRhRVNaovNneFzz2ltJh1VKFKB7Zg/viewform?usp=dialog" target="_blank" class="post-button">🎮 ゲームを投稿する</a>
+    <span class="settings-button" id="open-settings">⚙️ 設定</span>
   </div>
 
   <div id="game-list">読み込み中...</div>
   <p class="note">※リンクの安全性について、当サイトは一切責任を負いません。アクセスは自己責任でお願いします。</p>
+
+  <!-- 設定モーダル -->
+  <div class="settings-overlay" id="settings-overlay"></div>
+  <div class="settings-modal" id="settings-modal">
+    <h3>⚙️ コメント表示設定</h3>
+    <label>許容度 (0〜1): <span id="tolerance-value"></span></label><br>
+    <input type="range" id="tolerance-slider" min="0" max="1" step="0.02"><br>
+    <!-- サンプルプレビュー追加 -->
+    <div class="sample-preview" id="sample-preview">🙂 やさしい：例「いいね！」</div><br>
+
+    <label>表示モード:</label><br>
+    <select id="display-mode">
+      <option value="censor">伏字にする</option>
+      <option value="peek">クリックで表示できる伏字</option>
+      <option value="hide">完全非表示</option>
+    </select><br><br>
+
+    <button onclick="saveSettings()">保存</button>
+    <button onclick="closeSettings()">閉じる</button>
+  </div>
 
   <script>
     const GAME_API = 'https://sheetdb.io/api/v1/ir988y81fa5qp';
@@ -46,9 +88,61 @@
     let allGames = [];
     let searchKeyword = '';
 
+    let settings = {
+      tolerance: parseFloat(localStorage.getItem('tolerance')) || 0.5,
+      mode: localStorage.getItem('displayMode') || 'censor'
+    };
+
+    // スライダー説明用のサンプル
+    function updateSample(value) {
+      const preview = document.getElementById('sample-preview');
+      const v = parseFloat(value);
+      if (v <= 0.08) {
+        preview.innerText = "😀 やさしい：例「いいね」";
+      } else if (v <= 0.3) {
+        preview.innerText = "🙂 軽い否定：例「あんま面白くない」";
+      } else if (v <= 0.6) {
+        preview.innerText = "😐 攻撃的：例「きもいな」「おもんな」";
+      } else if (v <= 0.8) {
+        preview.innerText = "😠 強い攻撃：例「クソやなこれ」「死ね」";
+      } else {
+        preview.innerText = "🤬 過激：例「殺すぞ」";
+      }
+    }
+
     document.getElementById('search-input').addEventListener('input', e => {
       searchKeyword = e.target.value.toLowerCase();
       renderGames();
+    });
+
+    document.getElementById('open-settings').addEventListener('click', () => {
+      document.getElementById('settings-modal').style.display = 'block';
+      document.getElementById('settings-overlay').style.display = 'block';
+      document.getElementById('tolerance-slider').value = settings.tolerance;
+      document.getElementById('tolerance-value').innerText = settings.tolerance;
+      updateSample(settings.tolerance);
+      document.getElementById('display-mode').value = settings.mode;
+    });
+
+    function closeSettings() {
+      document.getElementById('settings-modal').style.display = 'none';
+      document.getElementById('settings-overlay').style.display = 'none';
+    }
+
+    function saveSettings() {
+      const slider = document.getElementById('tolerance-slider');
+      const mode = document.getElementById('display-mode');
+      settings.tolerance = parseFloat(slider.value);
+      settings.mode = mode.value;
+      localStorage.setItem('tolerance', settings.tolerance);
+      localStorage.setItem('displayMode', settings.mode);
+      closeSettings();
+      renderGames();
+    }
+
+    document.getElementById('tolerance-slider').addEventListener('input', e => {
+      document.getElementById('tolerance-value').innerText = e.target.value;
+      updateSample(e.target.value); // スライダー動かすとプレビュー更新
     });
 
     fetch(GAME_API)
@@ -118,10 +212,35 @@
             } else {
               box.innerHTML = '<strong>💬 コメント一覧</strong><br>';
               related.forEach(c => {
+                const text = c['コメント本文'];
+                const score = parseFloat(c['スコア'] || 0);
+
+                if (score >= settings.tolerance) {
+                  if (settings.mode === 'hide') {
+                    return; 
+                  } else if (settings.mode === 'censor') {
+                    box.innerHTML += `
+                      <div class="comment">
+                        <div class="commenter">${c['コメント者名']}</div>
+                        <div>⚠️ このコメントは非表示設定です</div>
+                      </div>
+                    `;
+                    return;
+                  } else if (settings.mode === 'peek') {
+                    box.innerHTML += `
+                      <div class="comment">
+                        <div class="commenter">${c['コメント者名']}</div>
+                        <div class="hidden-comment" onclick="this.innerText='${text}'">⚠️ このコメントは非表示設定です（クリックして表示）</div>
+                      </div>
+                    `;
+                    return;
+                  }
+                }
+
                 box.innerHTML += `
                   <div class="comment">
                     <div class="commenter">${c['コメント者名']}</div>
-                    <div>${c['コメント本文']}</div>
+                    <div>${text}</div>
                   </div>
                 `;
               });
